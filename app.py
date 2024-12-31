@@ -1,37 +1,48 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
+from datetime import datetime
 
 app = Flask(__name__)
 
-# SQLite DB 초기화 함수
+# Database initialization
 def init_db():
-    with sqlite3.connect("app.db") as conn:
-        # 사용자 데이터를 저장할 테이블 생성
-        conn.execute('''CREATE TABLE IF NOT EXISTS user_data (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            name TEXT,
-                            email TEXT)''')
-    print("Database initialized")
+    conn = sqlite3.connect('submissions.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS submissions
+        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         email TEXT NOT NULL,
+         message TEXT NOT NULL,
+         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
+    ''')
+    conn.commit()
+    conn.close()
 
-# 데이터베이스에 사용자 데이터를 저장하는 함수
-def save_to_db(name, email):
-    with sqlite3.connect("app.db") as conn:
-        conn.execute("INSERT INTO user_data (name, email) VALUES (?, ?)", (name, email))
-    print(f"Saved data: {name}, {email}")
+# Initialize database when starting the app
+init_db()
 
-@app.route("/", methods=["GET", "POST"])
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == "POST":
-        name = request.form["name"]
-        email = request.form["email"]
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        message = request.form['message']
         
-        # 폼에서 받은 데이터 DB에 저장
-        save_to_db(name, email)
+        conn = sqlite3.connect('submissions.db')
+        c = conn.cursor()
+        c.execute('INSERT INTO submissions (name, email, message) VALUES (?, ?, ?)',
+                 (name, email, message))
+        conn.commit()
+        conn.close()
         
-        return "Form submitted and data saved successfully!"
+        return redirect(url_for('success'))
     
-    return render_template("index.html")
+    return render_template('index.html')
 
-if __name__ == "__main__":
-    init_db()  # DB 초기화
+@app.route('/success')
+def success():
+    return render_template('success.html')
+
+if __name__ == '__main__':
     app.run(debug=True)
